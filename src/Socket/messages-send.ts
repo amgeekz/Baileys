@@ -20,20 +20,49 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 		patchMessageBeforeSending,
 		cachedGroupMetadata,
 	} = config
-	const sock = makeNewsLetterSocket(config)
-	const {
-		ev,
-		authState,
-		processingMutex,
-		signalRepository,
-		upsertMessage,
-		query,
-		fetchPrivacySettings,
-		generateMessageTag,
-		sendNode,
-		groupMetadata,
-		groupToggleEphemeral
-	} = sock
+	const newsLetterSock = makeNewsLetterSocket(config);
+const {
+	ev: evNewsLetter,
+	authState: authStateNewsLetter,
+	processingMutex: processingMutexNewsLetter,
+	signalRepository: signalRepositoryNewsLetter,
+	upsertMessage: upsertMessageNewsLetter,
+	query: queryNewsLetter,
+	fetchPrivacySettings: fetchPrivacySettingsNewsLetter,
+	generateMessageTag: generateMessageTagNewsLetter,
+	sendNode: sendNodeNewsLetter,
+	groupMetadata: groupMetadataNewsLetter,
+	groupToggleEphemeral: groupToggleEphemeralNewsLetter,
+} = newsLetterSock;
+const groupsSock = makeGroupsSocket(config);
+const {
+	ev: evGroups,
+	authState: authStateGroups,
+	processingMutex: processingMutexGroups,
+	signalRepository: signalRepositoryGroups,
+	upsertMessage: upsertMessageGroups,
+	query: queryGroups,
+	fetchPrivacySettings: fetchPrivacySettingsGroups,
+	generateMessageTag: generateMessageTagGroups,
+	sendNode: sendNodeGroups,
+	groupMetadata: groupMetadataGroups,
+	groupToggleEphemeral: groupToggleEphemeralGroups,
+} = groupsSock;
+const sock = {
+	ev: { newsLetter: evNewsLetter, groups: evGroups },
+	authState: { newsLetter: authStateNewsLetter, groups: authStateGroups },
+	processingMutex: { newsLetter: processingMutexNewsLetter, groups: processingMutexGroups },
+	signalRepository: { newsLetter: signalRepositoryNewsLetter, groups: signalRepositoryGroups },
+	upsertMessage: { newsLetter: upsertMessageNewsLetter, groups: upsertMessageGroups },
+	query: { newsLetter: queryNewsLetter, groups: queryGroups },
+	fetchPrivacySettings: { newsLetter: fetchPrivacySettingsNewsLetter, groups: fetchPrivacySettingsGroups },
+	generateMessageTag: { newsLetter: generateMessageTagNewsLetter, groups: generateMessageTagGroups },
+	sendNode: { newsLetter: sendNodeNewsLetter, groups: sendNodeGroups },
+	groupMetadata: { newsLetter: groupMetadataNewsLetter, groups: groupMetadataGroups },
+	groupToggleEphemeral: { newsLetter: groupToggleEphemeralNewsLetter, groups: groupToggleEphemeralGroups },
+};
+
+return sock;
 
 	const userDevicesCache = config.userDevicesCache || new NodeCache({
 		stdTTL: DEFAULT_CACHE_TTLS.USER_DEVICES, // 5 minutes
