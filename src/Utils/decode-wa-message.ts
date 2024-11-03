@@ -35,12 +35,10 @@ export function decodeMessageNode(
 			if(!isMe(from)) {
 				throw new Boom('receipient present, but msg not from me', { data: stanza })
 			}
-
 			chatId = recipient
 		} else {
 			chatId = from
 		}
-
 		msgType = 'chat'
 		author = from
 	} else if(isLidUser(from)) {
@@ -48,19 +46,16 @@ export function decodeMessageNode(
 			if(!isMeLid(from)) {
 				throw new Boom('receipient present, but msg not from me', { data: stanza })
 			}
-
 			chatId = recipient
 		} else {
 			chatId = from
 		}
-
 		msgType = 'chat'
 		author = from
 	} else if(isJidGroup(from)) {
 		if(!participant) {
 			throw new Boom('No participant in group message')
 		}
-
 		msgType = 'group'
 		author = participant
 		chatId = from
@@ -68,14 +63,12 @@ export function decodeMessageNode(
 		if(!participant) {
 			throw new Boom('No participant in group message')
 		}
-
 		const isParticipantMe = isMe(participant)
 		if(isJidStatusBroadcast(from)) {
 			msgType = isParticipantMe ? 'direct_peer_status' : 'other_status'
 		} else {
 			msgType = isParticipantMe ? 'peer_broadcast' : 'other_broadcast'
 		}
-
 		chatId = from
 		author = participant
 	} else if(isJidNewsletter(from)) {
@@ -86,7 +79,7 @@ export function decodeMessageNode(
 		throw new Boom('Unknown message type', { data: stanza })
 	}
 
-	const fromMe = (isLidUser(from) ? isMeLid : isMe)(stanza.attrs.participant || stanza.attrs.from)
+	const fromMe = isJidNewsletter(from) ? !!stanza.attrs?.is_sender : (isLidUser(from) ? isMeLid : isMe)(stanza.attrs.participant || stanza.attrs.from)
 	const pushname = stanza?.attrs?.notify
 
 	const key: WAMessageKey = {
@@ -101,6 +94,10 @@ export function decodeMessageNode(
 		messageTimestamp: +stanza.attrs.t,
 		pushName: pushname,
 		broadcast: isJidBroadcast(from)
+	}
+
+	if (msgType === 'newsletter') {
+		fullMessage.newsletterServerId = +stanza.attrs?.server_id
 	}
 
 	if(key.fromMe) {
@@ -128,7 +125,28 @@ export const decryptMessageNode = (
 		author,
 		async decrypt() {
 			let decryptables = 0
-			if(Array.isArray(stanza.content)) {
+			async function processSenderKeyDistribution(msg: proto.IMessage) {
+				if(msg.senderKeyDistributionMessage) {
+					try {
+						await repository.processSenderKeyDistributionMessage({
+							authorJid: author,
+							item: msg.senderKeyDistributionMessage
+						})
+					} catch(err) {
+						logger.error({ key: fullMessage.key, err }, 'failed to process senderKeyDistribution')
+					}
+				}
+			}
+
+			if (isJidNewsletter(fullMessage.key.remoteJid!)) {
+				const node = stanza.content?.find(n => n.tag === 'plaintext')
+				if (node?.content instanceof Uint8Array) {
+					const msg = proto.Message.decode(node.content)
+					await processSenderKeyDistribution(msg)
+					fullMessage.message = msg
+					decryptables += 1
+				}
+			} else if(Array.isArray(stanza.content)) {
 				for(const { tag, attrs, content } of stanza.content) {
 					if(tag === 'verified_name' && content instanceof Uint8Array) {
 						const cert = proto.VerifiedNameCertificate.decode(content)
@@ -147,7 +165,6 @@ export const decryptMessageNode = (
 					decryptables += 1
 
 					let msgBuffer: Uint8Array
-
 					try {
 						const e2eType = tag === 'plaintext' ? 'plaintext' : attrs.type
 						switch (e2eType) {
@@ -176,17 +193,7 @@ export const decryptMessageNode = (
 
 						let msg: proto.IMessage = proto.Message.decode(e2eType !== 'plaintext' ? unpadRandomMax16(msgBuffer) : msgBuffer)
 						msg = msg.deviceSentMessage?.message || msg
-						if(msg.senderKeyDistributionMessage) {
-							//eslint-disable-next-line max-depth
-						    try {
-								await repository.processSenderKeyDistributionMessage({
-									authorJid: author,
-									item: msg.senderKeyDistributionMessage
-								})
-							} catch(err) {
-								logger.error({ key: fullMessage.key, err }, 'failed to decrypt message')
-						        }
-						}
+						await processSenderKeyDistribution(msg)
 
 						if(fullMessage.message) {
 							Object.assign(fullMessage.message, msg)
