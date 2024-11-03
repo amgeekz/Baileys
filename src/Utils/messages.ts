@@ -28,6 +28,22 @@ import { isJidGroup, isJidNewsletter, isJidStatusBroadcast, jidNormalizedUser } 
 import { sha256 } from './crypto'
 import { generateMessageID, getKeyAuthor, unixTimestampSeconds } from './generics'
 import { downloadContentFromMessage, encryptedStream, generateThumbnail, getAudioDuration, getAudioWaveform, MediaDownloadOptions, prepareStream } from './messages-media'
+import { Readable } from 'stream';
+
+function bufferToReadable(buffer: Buffer): Readable {
+    const readable = new Readable();
+    readable.push(buffer);
+    readable.push(null);
+    return readable;
+}
+
+const data: Buffer | Readable = Buffer.from('Contoh data'); // Gantikan dengan sumber data yang sesuai
+const readableData = data instanceof Readable ? data : bufferToReadable(data);
+
+if (readableData instanceof Readable) {
+    someFunctionRequiringReadable(readableData);
+	readableData.destroy();
+}
 
 type MediaUploadData = {
 	media: WAMediaUpload
