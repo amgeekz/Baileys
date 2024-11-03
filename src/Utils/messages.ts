@@ -629,7 +629,6 @@ export const generateWAMessage = async(
 		jid,
 		await generateWAMessageContent(
 			content,
-			options
 			{ newsletter: isJidNewsLetter(jid!), ...options }
 		),
 		options
