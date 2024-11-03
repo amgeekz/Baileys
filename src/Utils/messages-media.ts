@@ -598,7 +598,7 @@ export const getWAUploadToServer = (
 	{ customUploadHosts, fetchAgent, logger, options }: SocketConfig,
 	refreshMediaConn: (force: boolean) => Promise<MediaConnInfo>,
 ): WAMediaUploadFunction => {
-	return async(stream, { mediaType, fileEncSha256B64, timeoutMs }) => {
+	return async(stream, { mediaType, fileEncSha256B64, newsletter, timeoutMs }) => {
 		// send a query JSON to obtain the url & auth token to upload our media
 		let uploadInfo = await refreshMediaConn(false)
 
@@ -606,6 +606,10 @@ export const getWAUploadToServer = (
 		const hosts = [ ...customUploadHosts, ...uploadInfo.hosts ]
 
 		fileEncSha256B64 = encodeBase64EncodedStringForUpload(fileEncSha256B64)
+		let media = MEDIA_PATH_MAP[mediaType]
+		if (newsletter) {
+			media = media?.replace('/mms/', '/newsletter/newsletter-')
+		}
 
 		for(const { hostname } of hosts) {
 			logger.debug(`uploading to "${hostname}"`)
