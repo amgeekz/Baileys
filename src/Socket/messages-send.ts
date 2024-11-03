@@ -101,7 +101,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 		}
 
 		if (type) {
-	node.attrs.type = type || (isJidNewsLetter(jid) ? 'read-self' : type);
+	node.attrs.type = type || (isJidNewsletter(jid) ? 'read-self' : type);
 }
 
 		const remainingMessageIds = messageIds.slice(1)
@@ -803,13 +803,13 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 				// required for delete
 				if(isDeleteMsg) {
 					// if the chat is a group, and I am not the author, then delete the message as an admin
-					if((isJidGroup(content.delete?.remoteJid as string) && !content.delete?.fromMe) || isJidNewsLetter(jid)) {
+					if((isJidGroup(content.delete?.remoteJid as string) && !content.delete?.fromMe) || isJidNewsletter(jid)) {
 						additionalAttributes.edit = '8'
 					} else {
 						additionalAttributes.edit = '7'
 					}
 				} else if(isEditMsg) {
-					additionalAttributes.edit = isJidNewsLetter(jid) ? '3' : '1'
+					additionalAttributes.edit = isJidNewsletter(jid) ? '3' : '1'
 				} else if(isPinMsg) {
 					additionalAttributes.edit = '2'
 				} else if(isPollMessage) {
