@@ -761,6 +761,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 					disappearingMessagesInChat
 				await groupToggleEphemeral(jid, value)
 			} else {
+				let mediaHandle
 				const fullMsg = await generateWAMessage(
 					jid,
 					content,
