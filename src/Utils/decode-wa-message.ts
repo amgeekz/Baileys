@@ -139,20 +139,22 @@ export const decryptMessageNode = (
 			}
 
 			if (isJidNewsletter(fullMessage.key.remoteJid!)) {
-				const node = stanza.content?.find(n => n.tag === 'plaintext')
-				if (node?.content instanceof Uint8Array) {
-					const msg = proto.Message.decode(node.content)
-					await processSenderKeyDistribution(msg)
-					fullMessage.message = msg
-					decryptables += 1
-				}
-			} else if(Array.isArray(stanza.content)) {
-				for(const { tag, attrs, content } of stanza.content) {
-					if(tag === 'verified_name' && content instanceof Uint8Array) {
-						const cert = proto.VerifiedNameCertificate.decode(content)
-						const details = proto.VerifiedNameCertificate.Details.decode(cert.details)
-						fullMessage.verifiedBizName = details.verifiedName
-					}
+    if (Array.isArray(stanza.content)) {
+        const node = stanza.content.find(n => n.tag === 'plaintext');
+        if (node?.content instanceof Uint8Array) {
+            const msg = proto.Message.decode(node.content);
+            await processSenderKeyDistribution(msg);
+            fullMessage.message = msg;
+            decryptables += 1;
+        }
+    }
+} else if (Array.isArray(stanza.content)) {
+    for (const { tag, attrs, content } of stanza.content) {
+        if (tag === 'verified_name' && content instanceof Uint8Array) {
+            const cert = proto.VerifiedNameCertificate.decode(content);
+            const details = proto.VerifiedNameCertificate.Details.decode(cert.details);
+            fullMessage.verifiedBizName = details.verifiedName;
+        }
 
 					if(tag !== 'enc' && tag !== 'plaintext') {
 						continue
