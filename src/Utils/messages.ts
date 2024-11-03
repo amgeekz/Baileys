@@ -24,7 +24,7 @@ import {
 	WAProto,
 	WATextMessage,
 } from '../Types'
-import { isJidGroup, isJidStatusBroadcast, jidNormalizedUser } from '../WABinary'
+import { isJidGroup, isJidNewsLetter, isJidStatusBroadcast, jidNormalizedUser } from '../WABinary'
 import { sha256 } from './crypto'
 import { generateMessageID, getKeyAuthor, unixTimestampSeconds } from './generics'
 import { downloadContentFromMessage, encryptedStream, generateThumbnail, getAudioDuration, getAudioWaveform, MediaDownloadOptions } from './messages-media'
@@ -630,6 +630,7 @@ export const generateWAMessage = async(
 		await generateWAMessageContent(
 			content,
 			options
+			{ newsletter: isJidNewsLetter(jid!), ...options }
 		),
 		options
 	)
