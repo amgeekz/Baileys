@@ -8,6 +8,8 @@ import { aggregateMessageKeysNotFromMe, assertMediaContent, bindWaitForEvent, de
 import { getUrlInfo } from '../Utils/link-preview'
 import { areJidsSameUser, BinaryNode, BinaryNodeAttributes, getBinaryNodeChild, getBinaryNodeChildren, isJidGroup, isJidUser, jidDecode, jidEncode, jidNormalizedUser, JidWithDevice, S_WHATSAPP_NET } from '../WABinary'
 import { makeGroupsSocket } from './groups'
+import { makeNewsLetterSocket } from './newsletter'
+import { Readable } from 'stream'
 
 export const makeMessagesSocket = (config: SocketConfig) => {
 	const {
@@ -18,20 +20,49 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 		patchMessageBeforeSending,
 		cachedGroupMetadata,
 	} = config
-	const sock = makeGroupsSocket(config)
-	const {
-		ev,
-		authState,
-		processingMutex,
-		signalRepository,
-		upsertMessage,
-		query,
-		fetchPrivacySettings,
-		generateMessageTag,
-		sendNode,
-		groupMetadata,
-		groupToggleEphemeral,
-	} = sock
+	const newsLetterSock = makeNewsLetterSocket(config);
+const {
+	ev: evNewsLetter,
+	authState: authStateNewsLetter,
+	processingMutex: processingMutexNewsLetter,
+	signalRepository: signalRepositoryNewsLetter,
+	upsertMessage: upsertMessageNewsLetter,
+	query: queryNewsLetter,
+	fetchPrivacySettings: fetchPrivacySettingsNewsLetter,
+	generateMessageTag: generateMessageTagNewsLetter,
+	sendNode: sendNodeNewsLetter,
+	groupMetadata: groupMetadataNewsLetter,
+	groupToggleEphemeral: groupToggleEphemeralNewsLetter,
+} = newsLetterSock;
+const groupsSock = makeGroupsSocket(config);
+const {
+	ev: evGroups,
+	authState: authStateGroups,
+	processingMutex: processingMutexGroups,
+	signalRepository: signalRepositoryGroups,
+	upsertMessage: upsertMessageGroups,
+	query: queryGroups,
+	fetchPrivacySettings: fetchPrivacySettingsGroups,
+	generateMessageTag: generateMessageTagGroups,
+	sendNode: sendNodeGroups,
+	groupMetadata: groupMetadataGroups,
+	groupToggleEphemeral: groupToggleEphemeralGroups,
+} = groupsSock;
+const sock = {
+	ev: { newsLetter: evNewsLetter, groups: evGroups },
+	authState: { newsLetter: authStateNewsLetter, groups: authStateGroups },
+	processingMutex: { newsLetter: processingMutexNewsLetter, groups: processingMutexGroups },
+	signalRepository: { newsLetter: signalRepositoryNewsLetter, groups: signalRepositoryGroups },
+	upsertMessage: { newsLetter: upsertMessageNewsLetter, groups: upsertMessageGroups },
+	query: { newsLetter: queryNewsLetter, groups: queryGroups },
+	fetchPrivacySettings: { newsLetter: fetchPrivacySettingsNewsLetter, groups: fetchPrivacySettingsGroups },
+	generateMessageTag: { newsLetter: generateMessageTagNewsLetter, groups: generateMessageTagGroups },
+	sendNode: { newsLetter: sendNodeNewsLetter, groups: sendNodeGroups },
+	groupMetadata: { newsLetter: groupMetadataNewsLetter, groups: groupMetadataGroups },
+	groupToggleEphemeral: { newsLetter: groupToggleEphemeralNewsLetter, groups: groupToggleEphemeralGroups },
+};
+
+return sock;
 
 	const userDevicesCache = config.userDevicesCache || new NodeCache({
 		stdTTL: DEFAULT_CACHE_TTLS.USER_DEVICES, // 5 minutes
@@ -98,9 +129,9 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 			}
 		}
 
-		if(type) {
-			node.attrs.type = type
-		}
+		if (type) {
+	node.attrs.type = type || (isJidNewsLetter(jid) ? 'read-self' : type);
+}
 
 		const remainingMessageIds = messageIds.slice(1)
 		if(remainingMessageIds.length) {
@@ -345,13 +376,14 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 		const isGroup = server === 'g.us'
 		const isStatus = jid === statusJid
 		const isLid = server === 'lid'
+		const isNewsletter = server === 'newsletter'
 
 		msgId = msgId || generateMessageIDV2(sock.user?.id)
 		useUserDevicesCache = useUserDevicesCache !== false
 		useCachedGroupMetadata = useCachedGroupMetadata !== false && !isStatus
 
 		const participants: BinaryNode[] = []
-		const destinationJid = (!isStatus) ? jidEncode(user, isLid ? 'lid' : isGroup ? 'g.us' : 's.whatsapp.net') : statusJid
+		const destinationJid = (!isStatus) ? jidEncode(user, isLid ? 'lid' : isGroup ? 'g.us' : isNewsletter ? 'newsletter' : 's.whatsapp.net') : statusJid
 		const binaryNodeContent: BinaryNode[] = []
 		const devices: JidWithDevice[] = []
 
@@ -468,6 +500,27 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 					})
 
 					await authState.keys.set({ 'sender-key-memory': { [jid]: senderKeyMap } })
+				} else if (isNewsletter) {
+					// Message edit
+					if (message.protocolMessage?.editedMessage) {
+						msgId = message.protocolMessage.key?.id!
+						message = message.protocolMessage.editedMessage
+					}
+
+					// Message delete
+					if (message.protocolMessage?.type === proto.Message.ProtocolMessage.Type.REVOKE) {
+						msgId = message.protocolMessage.key?.id!
+						message = {}
+					}
+
+					const patched = await patchMessageBeforeSending(message, [])
+					const bytes = proto.Message.encode(patched).finish()
+
+					binaryNodeContent.push({
+						tag: 'plaintext',
+						attrs: mediaType ? { mediatype: mediaType } : {},
+						content: bytes
+					})
 				} else {
 					const { user: meUser } = jidDecode(meId)!
 
@@ -532,7 +585,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 					tag: 'message',
 					attrs: {
 						id: msgId!,
-						type: getMessageType(message),
+						type: isNewsletter ? getMessageType(message) : 'text',
 						...(additionalAttributes || {})
 					},
 					content: binaryNodeContent
@@ -759,7 +812,11 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 						),
 						//TODO: CACHE
 						getProfilePicUrl: sock.profilePictureUrl,
-						upload: waUploadToServer,
+						upload: async(readStream: Readable, opts: WAMediaUploadFunctionOpts) => {
+							const up = await waUploadToServer(readStream, { ...opts, newsletter: isJidNewsLetter(jid) })
+							mediaHandle = up.handle
+							return up
+						},
 						mediaCache: config.mediaCache,
 						options: config.options,
 						messageId: generateMessageIDV2(sock.user?.id),
@@ -775,13 +832,13 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 				// required for delete
 				if(isDeleteMsg) {
 					// if the chat is a group, and I am not the author, then delete the message as an admin
-					if(isJidGroup(content.delete?.remoteJid as string) && !content.delete?.fromMe) {
+					if((isJidGroup(content.delete?.remoteJid as string) && !content.delete?.fromMe) || isJidNewsLetter(jid)) {
 						additionalAttributes.edit = '8'
 					} else {
 						additionalAttributes.edit = '7'
 					}
 				} else if(isEditMsg) {
-					additionalAttributes.edit = '1'
+					additionalAttributes.edit = isJidNewsLetter(jid) ? '3' : '1'
 				} else if(isPinMsg) {
 					additionalAttributes.edit = '2'
 				} else if(isPollMessage) {
