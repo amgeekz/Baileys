@@ -18,7 +18,6 @@ import { aesDecryptGCM, aesEncryptGCM, hkdf } from './crypto'
 import { generateMessageID } from './generics'
 import { writeFileSync } from 'fs'
 
-// Fungsi untuk mengonversi Buffer ke Readable
 function bufferToReadable(buffer: Buffer): Readable {
     const readable = new Readable();
     readable.push(buffer);
@@ -26,14 +25,11 @@ function bufferToReadable(buffer: Buffer): Readable {
     return readable;
 }
 
-// Contoh penggunaan
-const data: Buffer | Readable = // sumber data Anda
+const data: Buffer | Readable = Buffer.from('Contoh data'); // Gantikan dengan sumber data yang sesuai
 const readableData = data instanceof Readable ? data : bufferToReadable(data);
 
-// Penggunaan `readableData` pada fungsi yang memerlukan tipe `Readable`
-// Pastikan untuk mengecek tipe sebelum memanggil metode `destroy`
 if (readableData instanceof Readable) {
-    readableData.destroy();
+    readableData.destroy(); // Menggunakan destroy dengan aman
 }
 
 const getTmpFilesDirectory = () => tmpdir()
