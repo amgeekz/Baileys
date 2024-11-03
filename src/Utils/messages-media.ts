@@ -16,8 +16,7 @@ import { BaileysEventMap, DownloadableMessage, MediaConnInfo, MediaDecryptionKey
 import { BinaryNode, getBinaryNodeChild, getBinaryNodeChildBuffer, jidNormalizedUser } from '../WABinary'
 import { aesDecryptGCM, aesEncryptGCM, hkdf } from './crypto'
 import { generateMessageID } from './generics'
-import { writeFileSync } from 'fs';
-import { Readable } from 'stream';
+import { writeFileSync } from 'fs'
 
 // Fungsi untuk mengonversi Buffer ke Readable
 function bufferToReadable(buffer: Buffer): Readable {
