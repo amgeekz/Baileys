@@ -794,6 +794,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 						options: config.options,
 						...options,
 					}
+				}
 				const isDeleteMsg = 'delete' in content && !!content.delete
 				const isEditMsg = 'edit' in content && !!content.edit
 				const isPinMsg = 'pin' in content && !!content.pin
