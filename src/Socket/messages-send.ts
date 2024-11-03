@@ -784,17 +784,17 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 						//TODO: CACHE
 						getProfilePicUrl: sock.profilePictureUrl,
 						upload: async (readStream: Readable, opts: WAMediaUploadFunctionOpts) => { 
-        const up = await waUploadToServer(readStream, { ...opts, newsletter: isJidNewsletter(jid) });
-        if (up.handle) {
-            mediaHandle = up.handle;
-        }
-        return up;
-    },
+            const up = await waUploadToServer(readStream, { ...opts, newsletter: isJidNewsletter(jid) });
+            if (up.handle) {
+                mediaHandle = up.handle;
+            }
+            return up;
+        },
 						mediaCache: config.mediaCache,
 						options: config.options,
 						...options,
 					}
-				}
+				)
 				const isDeleteMsg = 'delete' in content && !!content.delete
 				const isEditMsg = 'edit' in content && !!content.edit
 				const isPinMsg = 'pin' in content && !!content.pin
